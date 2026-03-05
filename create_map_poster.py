@@ -25,6 +25,7 @@ import osmnx as ox
 from geopandas import GeoDataFrame
 from geopy.geocoders import Nominatim
 from lat_lon_parser import parse
+from matplotlib.collections import LineCollection
 from matplotlib.font_manager import FontProperties
 from networkx import MultiDiGraph
 from shapely.geometry import Point
@@ -315,6 +316,86 @@ def get_edge_widths_by_type(g):
         edge_widths.append(width)
 
     return edge_widths
+
+
+def _iter_line_geometries(geometry):
+    """Yield LineString geometries from mixed geometry containers."""
+    if geometry is None or geometry.is_empty:
+        return
+
+    geom_type = geometry.geom_type
+    if geom_type == "LineString":
+        yield geometry
+    elif geom_type in {"MultiLineString", "GeometryCollection"}:
+        for part in geometry.geoms:
+            yield from _iter_line_geometries(part)
+
+
+def plot_railway_tracks(ax, railways_proj, rail_color, map_radius):
+    """Plot railways as a solid line with perpendicular ticks (classic track style)."""
+    lines = []
+    for geom in railways_proj.geometry:
+        lines.extend(list(_iter_line_geometries(geom)))
+
+    if not lines:
+        return
+
+    main_segments = [np.column_stack(line.xy) for line in lines if len(line.coords) >= 2]
+    if not main_segments:
+        return
+
+    base_linewidth = 0.4
+    ax.add_collection(
+        LineCollection(
+            main_segments,
+            colors=rail_color,
+            linewidths=base_linewidth,
+            zorder=0.9,
+            capstyle="round",
+        )
+    )
+
+    tick_spacing = max(80.0, map_radius / 120)
+    tick_length = max(20.0, map_radius / 420)
+    tangent_delta = 1.0
+    tie_segments = []
+
+    for line in lines:
+        if line.length < tick_spacing * 0.5:
+            continue
+
+        for distance_along in np.arange(tick_spacing * 0.5, line.length, tick_spacing):
+            center = line.interpolate(distance_along)
+            before = line.interpolate(max(0.0, distance_along - tangent_delta))
+            after = line.interpolate(min(line.length, distance_along + tangent_delta))
+
+            dx = after.x - before.x
+            dy = after.y - before.y
+            norm = np.hypot(dx, dy)
+            if norm == 0:
+                continue
+
+            nx = -dy / norm
+            ny = dx / norm
+            half_len = tick_length / 2.0
+
+            tie_segments.append(
+                [
+                    (center.x - nx * half_len, center.y - ny * half_len),
+                    (center.x + nx * half_len, center.y + ny * half_len),
+                ]
+            )
+
+    if tie_segments:
+        ax.add_collection(
+            LineCollection(
+                tie_segments,
+                colors=rail_color,
+                linewidths=0.6,
+                zorder=0.91,
+                capstyle="round",
+            )
+        )
 
 
 def get_coordinates(city, country):
@@ -613,7 +694,7 @@ def create_poster(
             railways_proj = ox.projection.project_gdf(railways)
         except Exception:
             railways_proj = railways.to_crs(g_proj.graph['crs'])
-        railways_proj.plot(ax=ax, color=THEME['rails'], linewidth=0.8, zorder=0.9)
+        plot_railway_tracks(ax, railways_proj, THEME['rails'], compensated_dist)
     
     # Layer 2: Roads with hierarchy coloring
     print("Applying road hierarchy colors...")
