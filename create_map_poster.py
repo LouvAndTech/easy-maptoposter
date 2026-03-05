@@ -197,6 +197,7 @@ def load_theme(theme_name="terracotta"):
             "road_tertiary": "#D9A08A",
             "road_residential": "#E5C4B0",
             "road_default": "#D9A08A",
+            "rails": "#949494",
         }
 
     with open(theme_file, "r", encoding=FILE_ENCODING) as f:
@@ -524,7 +525,7 @@ def create_poster(
 
     # Progress bar for data fetching
     with tqdm(
-        total=3,
+        total=4,
         desc="Fetching map data",
         unit="step",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
@@ -556,6 +557,20 @@ def create_poster(
             name="parks",
         )
         pbar.update(1)
+        
+        # $. Fetch Railways
+        pbar.set_description("Downloading railways")
+        try:
+            railways = fetch_features(
+                point,
+                compensated_dist,
+                tags={"railway": "rail"},
+                name="railways",
+            )
+        except Exception as e:
+            print(f"Error fetching railways: {e}")
+            railways = None
+        pbar.update(1)
 
     print("✓ All data retrieved successfully!")
 
@@ -579,7 +594,7 @@ def create_poster(
                 water_polys = ox.projection.project_gdf(water_polys)
             except Exception:
                 water_polys = water_polys.to_crs(g_proj.graph['crs'])
-            water_polys.plot(ax=ax, facecolor=THEME['water'], edgecolor='none', zorder=0.5)
+            water_polys.plot(ax=ax, facecolor=THEME['water'], edgecolor='none', zorder=0.8)
 
     if parks is not None and not parks.empty:
         # Filter to only polygon/multipolygon geometries to avoid point features showing as dots
@@ -590,7 +605,16 @@ def create_poster(
                 parks_polys = ox.projection.project_gdf(parks_polys)
             except Exception:
                 parks_polys = parks_polys.to_crs(g_proj.graph['crs'])
-            parks_polys.plot(ax=ax, facecolor=THEME['parks'], edgecolor='none', zorder=0.8)
+            parks_polys.plot(ax=ax, facecolor=THEME['parks'], edgecolor='none', zorder=0.5)
+    
+    if railways is not None and not railways.empty:
+        # Project railway features in the same CRS as the graph
+        try:
+            railways_proj = ox.projection.project_gdf(railways)
+        except Exception:
+            railways_proj = railways.to_crs(g_proj.graph['crs'])
+        railways_proj.plot(ax=ax, color=THEME['rails'], linewidth=0.8, zorder=0.9)
+    
     # Layer 2: Roads with hierarchy coloring
     print("Applying road hierarchy colors...")
     edge_colors = get_edge_colors_by_type(g_proj)
