@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point
 import osmnx as ox
 
+from src.utils.constants import Z_ORDERS
+from src.utils.geometry import plot_railway_tracks
+
 
 def create_gradient_fade(ax, color: str, location: str = "bottom", zorder: int = 10):
     """
@@ -109,4 +112,68 @@ def get_crop_limits(g_proj, center_lat_lon, fig, dist):
     return (
         (center_x - half_x, center_x + half_x),
         (center_y - half_y, center_y + half_y),
+    )
+
+def water_renderer(ax, water, g_proj, theme_dict):
+    """Render water features on the given plot with appropriate styling.
+    Args:
+        ax : Matplotlib axis to plot on
+        water : GeoDataFrame containing water geometries
+        g_proj : Projected graph
+        theme_dict : Theme dictionary
+    """
+    water_polys = water[water.geometry.type.isin(["Polygon", "MultiPolygon"])]
+    if not water_polys.empty:
+        try:
+            water_polys = ox.projection.project_gdf(water_polys)
+        except Exception:
+            water_polys = water_polys.to_crs(g_proj.graph["crs"])
+        water_polys.plot(
+            ax=ax,
+            facecolor=theme_dict["water"],
+            edgecolor="none",
+            zorder=Z_ORDERS["water"],
+        )
+        
+def parks_renderer(ax, parks, g_proj, theme_dict):
+    """Render parks on the given plot with appropriate styling.
+    Args:
+        ax : Matplotlib axis to plot on
+        parks : GeoDataFrame containing park geometries
+        g_proj : Projected graph
+        theme_dict : Theme dictionary
+    """
+    parks_polys = parks[parks.geometry.type.isin(["Polygon", "MultiPolygon"])]
+    if not parks_polys.empty:
+        try:
+            parks_polys = ox.projection.project_gdf(parks_polys)
+        except Exception:
+            parks_polys = parks_polys.to_crs(g_proj.graph["crs"])
+        parks_polys.plot(
+            ax=ax,
+            facecolor=theme_dict["parks"],
+            edgecolor="none",
+            zorder=Z_ORDERS["parks"],
+        )
+        
+def railways_renderer(ax, railways, g_proj, theme_dict, compensated_dist):
+    """Render railways on the given plot with appropriate styling.
+    
+    Args:
+        ax : Matplotlib axis to plot on
+        railways : GeoDataFrame containing railway geometries
+        g_proj : Projected graph
+        theme_dict : Theme dictionary
+        compensated_dist : Distance for styling purposes
+    """
+    try:
+        railways_proj = ox.projection.project_gdf(railways)
+    except Exception:
+        railways_proj = railways.to_crs(g_proj.graph["crs"])
+    plot_railway_tracks(
+        ax=ax,
+        railways_proj=railways_proj,
+        rail_color=theme_dict.get("rails", "#949494"),
+        map_radius=compensated_dist,
+        zorder=Z_ORDERS["railways"],
     )

@@ -14,8 +14,8 @@ from src.config import POSTERS_DIR, DEFAULT_DISTANCE
 from src.data import fetch_features, fetch_graph, get_coordinates
 from src.fonts import load_fonts
 from src.theme import load_theme
-from src.utils import Z_ORDERS, plot_railway_tracks, space_city_name
-from .renderer import create_gradient_fade, get_crop_limits, get_edge_colors_and_widths
+from src.utils import Z_ORDERS, space_city_name
+from .renderer import create_gradient_fade, get_crop_limits, get_edge_colors_and_widths, parks_renderer, water_renderer, railways_renderer
 
 
 def generate_output_filename(city: str, theme_name: str, output_format: str) -> str:
@@ -136,47 +136,15 @@ def create_poster(
 
     # Plot water
     if water is not None and not water.empty:
-        water_polys = water[water.geometry.type.isin(["Polygon", "MultiPolygon"])]
-        if not water_polys.empty:
-            try:
-                water_polys = ox.projection.project_gdf(water_polys)
-            except Exception:
-                water_polys = water_polys.to_crs(g_proj.graph["crs"])
-            water_polys.plot(
-                ax=ax,
-                facecolor=theme_dict["water"],
-                edgecolor="none",
-                zorder=Z_ORDERS["water"],
-            )
+        water_renderer(ax, water, g_proj, theme_dict)
 
     # Plot parks
     if parks is not None and not parks.empty:
-        parks_polys = parks[parks.geometry.type.isin(["Polygon", "MultiPolygon"])]
-        if not parks_polys.empty:
-            try:
-                parks_polys = ox.projection.project_gdf(parks_polys)
-            except Exception:
-                parks_polys = parks_polys.to_crs(g_proj.graph["crs"])
-            parks_polys.plot(
-                ax=ax,
-                facecolor=theme_dict["parks"],
-                edgecolor="none",
-                zorder=Z_ORDERS["parks"],
-            )
+        parks_renderer(ax, parks, g_proj, theme_dict)
 
     # Plot railways
     if railways is not None and not railways.empty:
-        try:
-            railways_proj = ox.projection.project_gdf(railways)
-        except Exception:
-            railways_proj = railways.to_crs(g_proj.graph["crs"])
-        plot_railway_tracks(
-            ax=ax,
-            railways_proj=railways_proj,
-            rail_color=theme_dict.get("rails", "#949494"),
-            map_radius=compensated_dist,
-            zorder=Z_ORDERS["railways"],
-        )
+        railways_renderer(ax, railways, g_proj, theme_dict, compensated_dist)
 
     # Plot roads
     print("Applying road hierarchy colors...")
