@@ -1,0 +1,4 @@
+# These are additional dependencies required for the GUI version of the map poster generator. 
+# Add them to the requirements file to ensure they are installed when setting up the GUI environment.
+PyQt6==6.7.0
+PyQt6-Qt6==6.7.0
