@@ -16,6 +16,7 @@ from src.fonts import load_fonts
 from src.theme import load_theme
 from src.utils import Z_ORDERS, space_city_name
 from .renderer import create_gradient_fade, get_crop_limits, get_edge_colors_and_widths, parks_renderer, water_renderer, railways_renderer
+from .callbacks import emit_progress, emit_status
 
 
 def generate_output_filename(city: str, theme_name: str, output_format: str) -> str:
@@ -71,6 +72,7 @@ def create_poster(
     display_country = display_country or country_label or country
 
     print(f"\nGenerating map for {display_city}, {display_country}...")
+    emit_status("If the data is not cached this may take a few moments.")
 
     # Load theme if not provided
     if theme_dict is None:
@@ -86,13 +88,19 @@ def create_poster(
         unit="step",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
     ) as pbar:
+        
         pbar.set_description("Downloading street network")
+        emit_status("Downloading street network")
+        emit_progress("Downloading street network", 0, total_downloads)
         g = fetch_graph(point, compensated_dist)
         if g is None:
             raise RuntimeError("Failed to retrieve street network data.")
         pbar.update(1)
+        emit_progress("", 1, total_downloads)
 
         pbar.set_description("Downloading water features")
+        emit_status("Downloading water features")
+        emit_progress("Downloading water features", 1, total_downloads)
         water = fetch_features(
             point,
             compensated_dist,
@@ -105,8 +113,11 @@ def create_poster(
             name="water",
         )
         pbar.update(1)
+        emit_progress("", 2, total_downloads)
 
         pbar.set_description("Downloading parks/green spaces")
+        emit_status("Downloading parks/green spaces")
+        emit_progress("Downloading parks/green spaces", 2, total_downloads)
         parks = fetch_features(
             point,
             compensated_dist,
@@ -114,10 +125,13 @@ def create_poster(
             name="parks",
         )
         pbar.update(1)
+        emit_progress("Downloading parks/green spaces", 3, total_downloads)
 
         railways = None
         if not exclude_railways:
             pbar.set_description("Downloading railways")
+            emit_status("Downloading railways")
+            emit_progress("Downloading railways", 3, total_downloads)
             try:
                 railways = fetch_features(
                     point,
@@ -128,6 +142,7 @@ def create_poster(
             except Exception as e:
                 print(f"Error fetching railways: {e}")
             pbar.update(1)
+            emit_progress("", 4, total_downloads)
 
     print("✓ All data retrieved successfully!")
 
