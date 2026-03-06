@@ -575,6 +575,7 @@ def create_poster(
     display_city=None,
     display_country=None,
     fonts=None,
+    exclude_railways=False,
 ):
     """
     Generate a complete map poster with roads, water, parks, and typography.
@@ -603,10 +604,15 @@ def create_poster(
     display_country = display_country or country_label or country
 
     print(f"\nGenerating map for {city}, {country}...")
+    
+    if exclude_railways:
+        total_downloads = 3  # graph, water, parks
+    else:
+        total_downloads = 4  # graph, water, parks, railways
 
     # Progress bar for data fetching
     with tqdm(
-        total=4,
+        total=total_downloads,
         desc="Fetching map data",
         unit="step",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
@@ -639,19 +645,22 @@ def create_poster(
         )
         pbar.update(1)
         
-        # $. Fetch Railways
-        pbar.set_description("Downloading railways")
-        try:
-            railways = fetch_features(
-                point,
-                compensated_dist,
+        # 4. Fetch Railways (unless excluded)
+        if not exclude_railways:
+            pbar.set_description("Downloading railways")
+            try:
+                railways = fetch_features(
+                    point,
+                    compensated_dist,
                 tags={"railway": "rail"},
                 name="railways",
             )
-        except Exception as e:
-            print(f"Error fetching railways: {e}")
+            except Exception as e:
+                print(f"Error fetching railways: {e}")
+                railways = None
+            pbar.update(1)
+        else:
             railways = None
-        pbar.update(1)
 
     print("✓ All data retrieved successfully!")
 
@@ -925,6 +934,7 @@ Options:
   --all-themes      Generate posters for all themes
   --distance, -d    Map radius in meters (default: 18000)
   --list-themes     List all available themes
+  --no-railways     Exclude railway tracks from the map
 
 Distance guide:
   4000-6000m   Small/dense cities (Venice, Amsterdam old center)
@@ -1060,6 +1070,13 @@ Examples:
         choices=["png", "svg", "pdf"],
         help="Output format for the poster (default: png)",
     )
+    parser.add_argument(
+        "--no-railways",
+        dest="no_railways",
+        action="store_true",
+        help="Exclude railway tracks from the map",
+    )
+    parser.set_defaults(no_railways=False)
 
     args = parser.parse_args()
 
@@ -1142,6 +1159,7 @@ Examples:
                 display_city=args.display_city,
                 display_country=args.display_country,
                 fonts=custom_fonts,
+                exclude_railways=args.no_railways,
             )
 
         print("\n" + "=" * 50)
