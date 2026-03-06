@@ -6,6 +6,7 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import osmnx as ox
+from matplotlib.textpath import TextPath
 from matplotlib.font_manager import FontProperties
 from tqdm import tqdm
 
@@ -35,6 +36,7 @@ def create_poster(
     output_format: str = "png",
     width: float = 12,
     height: float = 16,
+    metric: bool = False,
     country_label: Optional[str] = None,
     display_city: Optional[str] = None,
     display_country: Optional[str] = None,
@@ -52,8 +54,9 @@ def create_poster(
         dist: Map radius in meters
         output_file: Output file path
         output_format: "png", "svg", or "pdf"
-        width: Poster width in inches
-        height: Poster height in inches
+        width: Poster width in inches (if metric=True, treated as cm)
+        height: Poster height in inches (if metric=True, treated as cm)
+        metric: Whether to use metric units
         country_label: Override country text
         display_city: Custom city name for display
         display_country: Custom country name for display
@@ -241,16 +244,27 @@ def _add_typography(ax, city, country, point, width, height, fonts, theme):
         font_coords = FontProperties(family="monospace", size=FONT_SIZES["coords"] * scale_factor)
         font_attr = FontProperties(family="monospace", size=FONT_SIZES["attr"] * scale_factor)
 
+    # Measure the city name and adjust font size to use 3/4 of poster width.
+    # TextPath measurements are in points, while poster width is in inches.
+    # Convert target width to points before comparing.
     spaced_city = space_city_name(city)
-    city_char_count = len(city)
-    base_adjusted_main = FONT_SIZES["main"] * scale_factor
+    base_font_size = FONT_SIZES["main"] * scale_factor
 
-    if city_char_count > 10:
-        length_factor = 10 / city_char_count
-        adjusted_font_size = max(base_adjusted_main * length_factor, 10 * scale_factor)
+    if fonts:
+        temp_font = FontProperties(fname=fonts["bold"], size=base_font_size)
     else:
-        adjusted_font_size = base_adjusted_main
+        temp_font = FontProperties(family="monospace", weight="bold", size=base_font_size)
 
+    text_path = TextPath((0, 0), spaced_city, size=base_font_size, prop=temp_font)
+    text_width_points = text_path.get_extents().width
+
+    points_per_inch = 72.0
+    target_width_points = width * 0.75 * points_per_inch
+
+    width_scale = target_width_points / text_width_points if text_width_points > 0 else 1.0
+    width_scale = min(width_scale, 1.0)
+    adjusted_font_size = base_font_size * width_scale
+    
     if fonts:
         font_main = FontProperties(fname=fonts["bold"], size=adjusted_font_size)
     else:
