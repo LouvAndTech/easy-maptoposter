@@ -1,0 +1,156 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements_gui.txt
+          pip install pyinstaller
+      
+      - name: Build executable
+        run: |
+          pyinstaller maptoposter.spec
+      
+      - name: Create installer (Inno Setup)
+        run: |
+          choco install innosetup -y
+          iscc installer_windows.iss
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MapPosterGenerator-Windows
+          path: dist/MapPosterGenerator-Setup.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential
+          sudo gem install --no-document fpm
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements_gui.txt
+          pip install pyinstaller
+      
+      - name: Build executable
+        run: |
+          pyinstaller maptoposter.spec
+      
+      - name: Create DEB package
+        run: |
+          mkdir -p package/opt/maptoposter
+          mkdir -p package/usr/share/applications
+          mkdir -p package/usr/share/icons/hicolor/256x256/apps
+          mkdir -p package/usr/bin
+          
+          cp -r dist/MapPosterGenerator/* package/opt/maptoposter/
+          cp desktop/maptoposter.desktop package/usr/share/applications/
+          cp icons/app_icon.png package/usr/share/icons/hicolor/256x256/apps/maptoposter.png
+          
+          # Create launcher script
+          echo '#!/bin/bash' > package/usr/bin/maptoposter
+          echo '/opt/maptoposter/MapPosterGenerator' >> package/usr/bin/maptoposter
+          chmod +x package/usr/bin/maptoposter
+          
+          fpm -s dir -t deb -n maptoposter -v 1.0.0 \
+            --description "Generate beautiful map posters for any city" \
+            --url "https://github.com/yourusername/maptoposter" \
+            --license "MIT" \
+            --category "Graphics" \
+            -C package \
+            opt usr
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MapPosterGenerator-Linux
+          path: "*.deb"
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements_gui.txt
+          pip install pyinstaller
+      
+      - name: Build app bundle
+        run: |
+          pyinstaller maptoposter.spec
+      
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "Map Poster Generator" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "MapPosterGenerator.app" 200 190 \
+            --hide-extension "MapPosterGenerator.app" \
+            --app-drop-link 600 185 \
+            "MapPosterGenerator.dmg" \
+            "dist/" || true
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MapPosterGenerator-macOS
+          path: MapPosterGenerator.dmg
+
+  release:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            MapPosterGenerator-Windows/*.exe
+            MapPosterGenerator-Linux/*.deb
+            MapPosterGenerator-macOS/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

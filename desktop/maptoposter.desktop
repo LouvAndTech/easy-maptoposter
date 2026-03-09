@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Map Poster Generator
+Comment=Generate beautiful map posters for any city
+Exec=/opt/maptoposter/MapPosterGenerator
+Icon=maptoposter
+Terminal=false
+Categories=Graphics;Utility;

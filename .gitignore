@@ -10,6 +10,12 @@ dist/
 build/
 *.pyc
 __pycache__/
+*.spec.bak
+package/
+*.deb
+*.dmg
+*.exe
+*.app
 
 # IDE
 .idea/
