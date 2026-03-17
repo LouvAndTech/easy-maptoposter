@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import sys
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 block_cipher = None
 
@@ -33,6 +33,10 @@ datas += collect_data_files('matplotlib')
 # Add osmnx and geopandas data files (including package metadata)  
 datas += collect_data_files('osmnx')
 datas += collect_data_files('geopandas')
+
+# OSMnx calls importlib.metadata.version("osmnx") at import time.
+# Bundle distribution metadata explicitly so frozen builds can resolve it.
+datas += copy_metadata('osmnx')
 
 a = Analysis(
     ['gui_launcher.py'],
