@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import sys
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
@@ -30,9 +30,9 @@ hiddenimports = [
 # Add matplotlib data files
 datas += collect_data_files('matplotlib')
 
-# Add osmnx and geopandas data files (including package metadata)
-datas += collect_all('osmnx')
-datas += collect_all('geopandas')
+# Add osmnx and geopandas data files (including package metadata)  
+datas += collect_data_files('osmnx')
+datas += collect_data_files('geopandas')
 
 a = Analysis(
     ['gui_launcher.py'],
