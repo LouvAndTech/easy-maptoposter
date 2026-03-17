@@ -43,13 +43,20 @@ class PosterGeneratorWorker(QThread):
 class MainWindow(QMainWindow):
     """Main window for the map poster generator GUI."""
     
+    status_signal = pyqtSignal(str)
+    progress_signal = pyqtSignal(str, int, int)
+    
     def __init__(self):
         super().__init__()
         self.generator_thread: Optional[PosterGeneratorWorker] = None
+
+        # Bridge worker-thread callbacks onto the GUI thread.
+        self.status_signal.connect(self.on_status_update)
+        self.progress_signal.connect(self.on_progress_update)
         
         # Register callbacks for status updates
-        register_status_callback(self.on_status_update)
-        register_progress_callback(self.on_progress_update)
+        register_status_callback(self.status_signal.emit)
+        register_progress_callback(self.progress_signal.emit)
         
         self.init_ui()
         self.setWindowTitle("City Map Poster Generator")
